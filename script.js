@@ -1,29 +1,27 @@
 const { jsPDF } = window.jspdf;
-let creditPoints = [];
-let allCreditUnitInputs = []
-let gradeValues = []
-let numberOfCourses
-let numCoursesInPDF
-let uploadedADocument = false
-let cgpa 
+let downloadPdf;
+let uploaded = false;
 
 $('#submitNum').click(() => {
     const numInput = $('#num').val();
-    numberOfCourses = Number(numInput);
+    const numberOfCourses = Number(numInput);
 
-    if(uploadedADocument){
+    if(uploaded){
         // remove previously added rows
         document.querySelectorAll('.new-row').forEach(newRow => {
             newRow.remove()
-        })
-        addNumOfCourses(numberOfCourses)
-        window.scrollTo(0,window.scrollY + document.querySelectorAll('.new-row')[0].getBoundingClientRect().top);
-        document.getElementById('downloadbtn').disabled = true
-        numberOfCourses += numCoursesInPDF
-        $('#num').val('')
+        });
+        
+        addNumOfCourses(numberOfCourses);
+
+        // scroll to the top of newly added rows
+        const firstRowOfNewInputs = document.querySelectorAll('.new-row')[0];
+        window.scrollTo(0,window.scrollY + firstRowOfNewInputs.getBoundingClientRect().top);
+
+        document.getElementById('downloadbtn').disabled = true;
+        $('#num').val('');
         return
     }
-
 
     // clear content of div.calculate 
     document.getElementById('courses-container').innerHTML = '';
@@ -32,77 +30,78 @@ $('#submitNum').click(() => {
     document.getElementById('result').innerText = '';
 
     // append number of inputs that corresponds to number of courses to calculate
-    addNumOfCourses(numberOfCourses)
+    addNumOfCourses(numberOfCourses);
 
-    document.getElementById('downloadbtn').disabled = true
-
-    $('#num').val('')
+    document.getElementById('downloadbtn').disabled = true;
+    $('#num').val('');
 });
 
-const addNumOfCourses = (numberOfCourses) => {
+function addNumOfCourses(numberOfCourses) {
     //create clear button element
-    const clearButton = document.createElement('button')
-    clearButton.innerText = 'Clear a row'
-    clearButton.style.backgroundColor = 'black'
-    clearButton.style.color = 'white'
-    clearButton.style.marginBottom = '15px'
-    clearButton.classList.add('btn')
-    clearButton.classList.add('new-row')
+    const clearButton = document.createElement('button');
+    clearButton.innerText = 'Clear a row';
+    clearButton.style.backgroundColor = 'black';
+    clearButton.style.color = 'white';
+    clearButton.style.marginBottom = '15px';
+    clearButton.classList.add('btn');
+    clearButton.classList.add('new-row');
     clearButton.addEventListener('click', function(e){
-        e.target.previousElementSibling.classList.add('animated')
-        e.target.previousElementSibling.classList.add('fadeOut')
+        e.target.previousElementSibling.classList.add('animated');
+        e.target.previousElementSibling.classList.add('fadeOut');
         setTimeout(() => {
             if(document.getElementById('courses-container').childElementCount == 2){
-                e.target.previousElementSibling.remove()
-                e.target.remove()
-            }else{
-                e.target.previousElementSibling.remove()
+                e.target.previousElementSibling.remove();
+                e.target.remove();
+            }
+            else{
+                e.target.previousElementSibling.remove();
             }
         }, 500);
-    })
+    });
 
-    if(uploadedADocument){
+    // add input rows with specified amount
+    if(uploaded){
         for (let i = numCoursesInPDF; i < (numberOfCourses + numCoursesInPDF); i++) {
-            document.getElementById('courses-container').insertAdjacentElement("beforeend", createRowElement(i));
-        }
-        document.getElementById('courses-container').insertAdjacentElement('beforeend', clearButton);
-
-    }else{
-       
-        for (let i = 0; i < numberOfCourses; i++) {
-            document.getElementById('courses-container').insertAdjacentElement("beforeend", createRowElement(i))
+            document.getElementById('courses-container').insertAdjacentElement('beforeend', createRowElement(i));
         }
         document.getElementById('courses-container').insertAdjacentElement('beforeend', clearButton);
     }
-  
+    else{
+        for (let i = 0; i < numberOfCourses; i++) {
+            document.getElementById('courses-container').insertAdjacentElement('beforeend', createRowElement(i))
+        }
+        document.getElementById('courses-container').insertAdjacentElement('beforeend', clearButton);
+    }
 }
 
 function createRowElement(i){
-        const containerDiv = document.createElement('div')
-        if(uploadedADocument){
-            containerDiv.classList.add('new-row')
-        }
-        const creditUnitInput = document.createElement('input')
-        creditUnitInput.classList.add('grade')
-        creditUnitInput.classList.add('animated')
-        creditUnitInput.classList.add('fadeIn')
-        creditUnitInput.setAttribute('type', 'text')
-        creditUnitInput.setAttribute('placeholder', 'GRADE')
-        creditUnitInput.addEventListener('change', function () {
-          this.value = this.value.toUpperCase()
-       })
-       containerDiv.insertAdjacentHTML("beforeend", `<input class="course animated fadeIn" placeholder="COURSE ${i + 1}" type="text">  <input type="number" placeholder="CREDIT UNIT" class="credit-unit animated fadeIn">`)
-       containerDiv.insertAdjacentElement('beforeend', creditUnitInput)
-       containerDiv.insertAdjacentHTML('beforeend', ' <hr/>')
-       return containerDiv
-    
+    const containerDiv = document.createElement('div');
+    if(uploaded){
+        containerDiv.classList.add('new-row');
+    };
+    const creditUnitInput = document.createElement('input');
+    creditUnitInput.classList.add('grade');
+    creditUnitInput.classList.add('animated');
+    creditUnitInput.classList.add('fadeIn');
+    creditUnitInput.setAttribute('type', 'text');
+    creditUnitInput.setAttribute('placeholder', 'GRADE');
+    creditUnitInput.addEventListener('change', function () {
+        this.value = this.value.toUpperCase();
+    });
+    containerDiv.insertAdjacentHTML('beforeend', `<input class="course animated fadeIn" placeholder="COURSE ${i + 1}" type="text">  <input type="number" placeholder="CREDIT UNIT" class="credit-unit animated fadeIn">`);
+    containerDiv.insertAdjacentElement('beforeend', creditUnitInput);
+    containerDiv.insertAdjacentHTML('beforeend', '<hr/>');
+    return containerDiv
 }
 
-$('#calculate-btn').click(() => {
-    // reset all variables 
-    creditPoints = [];
-    allCreditUnitInputs = [];
-    gradeValues = []
+$('#calculate-btn').click(function(){
+    downloadPdf = calculateCGPA()
+});
+
+function calculateCGPA () {
+    const creditPoints = [];
+    const allCreditUnitInputs = [];
+    const gradeValues = []
       
     for (var i = 0; i < document.getElementsByClassName('fadeIn').length; i++) {
         if (document.getElementsByClassName('fadeIn')[i].value == '') {
@@ -110,39 +109,35 @@ $('#calculate-btn').click(() => {
             return;
         }
     }
-    var allGrades = $('.grade');
-    for (var i = 0; i < allGrades.length; i++) {
-        var creditUnits = document.getElementsByClassName('credit-unit');
-        var grades = document.getElementsByClassName('grade');
+
+    const allGrades = $('.grade');
+    for (let i = 0; i < allGrades.length; i++) {
+        const creditUnits = document.getElementsByClassName('credit-unit');
+        const grades = document.getElementsByClassName('grade');
 
         if (grades[i].value == 'a' || grades[i].value == 'A') {
-            var gradeValue = 5;
+            const gradeValue = 5;
             findQualityPoint(gradeValue, creditUnits[i])
         }
         else if (grades[i].value == 'b' || grades[i].value == 'B') {
-            var gradeValue = 4;
+            const gradeValue = 4;
             findQualityPoint(gradeValue, creditUnits[i])
-
         }
         else if (grades[i].value == 'c' || grades[i].value == 'C') {
-            var gradeValue = 3;
+            const gradeValue = 3;
             findQualityPoint(gradeValue, creditUnits[i])
-
         }
         else if (grades[i].value == 'd' || grades[i].value == 'D') {
-            var gradeValue = 2;
+            const gradeValue = 2;
             findQualityPoint(gradeValue, creditUnits[i])
-
         }
         else if (grades[i].value == 'e' || grades[i].value == 'E') {
-            var gradeValue = 1;
+            const gradeValue = 1;
             findQualityPoint(gradeValue, creditUnits[i])
-
         }
         else if (grades[i].value == 'f' || grades[i].value == 'F') {
-            var gradeValue = 0;
+            const gradeValue = 0;
             findQualityPoint(gradeValue,creditUnits[i])
-
         }
         else {
             swal('Invalid Entry');
@@ -154,60 +149,61 @@ $('#calculate-btn').click(() => {
         }
     }
 
+    const total = creditPoints.reduce((acc, next) => acc + next)
+    const totalCreditUnit = allCreditUnitInputs.reduce((acc, next) => acc + next)
+    
+    const cgpa = total / totalCreditUnit;
 
-    var total = creditPoints.reduce((acc, next) => acc + next)
-    var totalCreditUnit = allCreditUnitInputs.reduce((acc, next) => acc + next)
-
-
-    cgpa = total / totalCreditUnit;
     document.getElementById('result').innerText = cgpa.toFixed(2);
     document.getElementById('downloadbtn').disabled = false
 
-});
-
-$('#downloadbtn').click(downloadPdf)
-
-function downloadPdf(){
-    for (var i = 0; i < document.getElementsByClassName('fadeIn').length; i++) {
-        if (document.getElementsByClassName('fadeIn')[i].value == '') {
-            swal('Fill in inputs and calculate your cgpa first');
-            return;
-        }
+    function findQualityPoint(gradeValue,creditUnit){
+        gradeValues.push(gradeValue)
+        allCreditUnitInputs.push(Number(creditUnit.value))
+        const qualityPoint = Number(creditUnit.value) * gradeValue
+        creditPoints.push(qualityPoint);
     }
 
-    // insert calculated values in a tabulated format
-    for (var i = 0; i <= numberOfCourses; i++) {
-        if (i === numberOfCourses) {
-            document.querySelector('tbody').insertAdjacentHTML('beforeend', `<tr><td>Your CGPA is ${cgpa.toFixed(2)}</td></tr>`)
-            document.querySelector('tr').style.fontWeight = 'bold'
-        } else {
-            var courses = document.getElementsByClassName('course');
-            var creditUnits = document.getElementsByClassName('credit-unit');
-            var grades = document.getElementsByClassName('grade');
-            document.querySelector('tbody').insertAdjacentHTML('beforeend', `<tr><td>${courses[i].value}</td><td>${creditUnits[i].value}</td><td>${grades[i].value.toUpperCase()}</td><td>${gradeValues[i]}</td><td>${creditPoints[i]}</td></tr>`)
+    //download function below has closure on cgpa, gradeValues and creditPoints variables
+    return function () {
+        for (let i = 0; i < document.getElementsByClassName('fadeIn').length; i++) {
+            if (document.getElementsByClassName('fadeIn')[i].value == '') {
+                swal('Fill in inputs and calculate your cgpa first');
+                return;
+            }
         }
+    
+        // insert calculated values in a tabulated format
+        const courses = document.getElementsByClassName('course');
+        const creditUnits = document.getElementsByClassName('credit-unit');
+        const grades = document.getElementsByClassName('grade');
+    
+        for (let i = 0; i <= courses.length; i++) {
+            if (i === courses.length) {
+                document.querySelector('tbody').insertAdjacentHTML('beforeend', `<tr><td>Your CGPA is ${cgpa.toFixed(2)}</td></tr>`);
+                document.querySelector('tr').style.fontWeight = 'bold'
+            }else {
+              
+                document.querySelector('tbody').insertAdjacentHTML('beforeend', `<tr><td>${courses[i].value}</td><td>${creditUnits[i].value}</td><td>${grades[i].value.toUpperCase()}</td><td>${gradeValues[i]}</td><td>${creditPoints[i]}</td></tr>`);
+            }
+        }
+    
+        const doc = new jsPDF()
+        doc.autoTable({ html: '#myspreadsheet' })
+        doc.save('mySpreadsheet.pdf')
+    
+        document.querySelector('tbody').textContent = ''
     }
-
-    const doc = new jsPDF()
-    doc.autoTable({ html: '#myspreadsheet' })
-    doc.save('mySpreadsheet.pdf')
-
-    document.querySelector('tbody').textContent = ''
 }
 
-
-function findQualityPoint(gradeValue,creditUnit){
-    gradeValues.push(gradeValue)
-    allCreditUnitInputs.push(Number(creditUnit.value))
-    var qualityPoint = Number(creditUnit.value) * gradeValue
-    creditPoints.push(qualityPoint);
-}
+$('#downloadbtn').click(function (){
+    downloadPdf()
+})
 
 
+const BASE64_MARKER = ';base64,'
 
-var BASE64_MARKER = ';base64,'
-
-function ExtractText() {
+function extractText() {
     var input = document.getElementById("file-id");
     var fReader = new FileReader();
     fReader.readAsDataURL(input.files[0]);
@@ -292,7 +288,8 @@ function pdfAsArray(pdfAsArray) {
                  }
             }
         });
-        uploadedADocument = true
+        uploaded = true
+        document.getElementById('result').innerText = '';
 
     }, function (reason) {
         // PDF loading error
